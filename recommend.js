@@ -6,25 +6,27 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  const { category } = req.body;
+  const { message } = req.body; // 사용자가 입력한 고민/질문
   const apiKey = process.env.GEMINI_API_KEY;
 
   try {
-    const prompt = `여행자를 위한 '${category}' 테마 추천 장소 2곳을 추천해줘. 마크다운 없이 JSON 배열 데이터만 출력해줘. 예시: [{"name":"장소명","desc":"이유","rating":"★ 4.8"}]`;
-    
+    // 고민 해결 상담원 페르소나 부여
+    const systemPrompt = `너는 앱 이용자의 고민과 궁금증을 친절하고 다정하게 해결해 주는 AI 전문 상담원이야. 상대방의 고민을 경청하고 명쾌한 해결책을 제시해줘.\n\n사용자 질문: ${message}`;
+
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }] }]
+      })
     });
 
     const data = await response.json();
-    const aiRawText = data.candidates[0].content.parts[0].text;
-    const cleanJsonText = aiRawText.replace(/```json|```/g, '').trim();
+    const reply = data.candidates[0].content.parts[0].text;
 
-    return res.status(200).json(JSON.parse(cleanJsonText));
+    // AI의 대화 답변 전달
+    return res.status(200).json({ reply });
   } catch (error) {
-    return res.status(500).json({ error: 'AI 분석 실패' });
+    return res.status(500).json({ error: 'AI 답변 생성 실패' });
   }
 }
-
